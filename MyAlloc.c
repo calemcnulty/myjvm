@@ -1,26 +1,26 @@
 /* MyAlloc.c */
 
 /*
- All memory allocation and deallocation is performed in this module.
- 
- There are two families of functions, one just for managing the Java heap
- and a second for other memory requests.  This second family of functions
- provides wrappers for standard C library functions but checks that memory
- is not exhausted and zeroes out any returned memory.
- 
- Java Heap Management Functions:
- * InitMyAlloc  -- initializes the Java heap before execution starts
- * MyHeapAlloc  -- returns a block of memory from the Java heap
- * gc           -- the System.gc garbage collector
- * MyHeapFree   -- to be called only by gc()!!
- * PrintHeapUsageStatistics  -- does as the name suggests
- 
- General Storage Functions:
- * SafeMalloc  -- used like malloc
- * SafeCalloc  -- used like calloc
- * SafeStrdup  -- used like strdup
- * SafeFree    -- used like free
- */
+   All memory allocation and deallocation is performed in this module.
+   
+   There are two families of functions, one just for managing the Java heap
+   and a second for other memory requests.  This second family of functions
+   provides wrappers for standard C library functions but checks that memory
+   is not exhausted and zeroes out any returned memory.
+   
+   Java Heap Management Functions:
+   * InitMyAlloc  -- initializes the Java heap before execution starts
+   * MyHeapAlloc  -- returns a block of memory from the Java heap
+   * gc           -- the System.gc garbage collector
+   * MyHeapFree   -- to be called only by gc()!!
+   * PrintHeapUsageStatistics  -- does as the name suggests
+
+   General Storage Functions:
+   * SafeMalloc  -- used like malloc
+   * SafeCalloc  -- used like calloc
+   * SafeStrdup  -- used like strdup
+   * SafeFree    -- used like free
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,7 +34,7 @@
 #include "jvm.h"
 
 /* we will never allocate a block smaller than this */
-#define MINBLOCKSIZE 12
+#define MINBLOCKSIZE 12 
 
 typedef struct FreeStorageBlock {
     uint32_t size;  /* size in bytes of this block of storage */
@@ -61,7 +61,7 @@ static void *minAddr = NULL;
 /* Allocate the Java heap and initialize the free list */
 void InitMyAlloc( int HeapSize ) {
     FreeStorageBlock *FreeBlock;
-    
+
     HeapSize &= 0xfffffffc;   /* force to a multiple of 4 */
     HeapStart = calloc(1,HeapSize);
     if (HeapStart == NULL) {
@@ -81,46 +81,46 @@ void InitMyAlloc( int HeapSize ) {
 }
 
 /* Returns a pointer to a block with at least size bytes available,
- and initialized to hold zeros.
- Notes:
- 1. The result will always be a word-aligned address.
- 2. The word of memory preceding the result address holds the
- size in bytes of the block of storage returned (including
- this size field).
- 3. A block larger than that requested may be returned if the
- leftover portion would be too small to be useful.
- 4. The size of the returned block is always a multiple of 4.
- 5. The implementation of MyAlloc contains redundant tests to
- verify that the free list blocks contain plausible info.
- */
+   and initialized to hold zeros.
+   Notes:
+   1. The result will always be a word-aligned address.
+   2. The word of memory preceding the result address holds the
+      size in bytes of the block of storage returned (including
+      this size field).
+   3. A block larger than that requested may be returned if the
+      leftover portion would be too small to be useful.
+   4. The size of the returned block is always a multiple of 4.
+   5. The implementation of MyAlloc contains redundant tests to
+      verify that the free list blocks contain plausible info.
+*/
 void *MyHeapAlloc( int size ) {
     /* we need size bytes plus more for the size field that precedes
-     the block in memory, and we round up to a multiple of 4 */
+       the block in memory, and we round up to a multiple of 4 */
     int offset, diff, blocksize;
     FreeStorageBlock *blockPtr, *prevBlockPtr, *newBlockPtr;
     int minSizeNeeded = (size + sizeof(blockPtr->size) + 3) & 0xfffffffc;
-    
+
     if (tracingExecution & TRACE_HEAP)
         fprintf(stdout, "* heap allocation request of size %d (augmented to %d)\n",
-                size, minSizeNeeded);
+            size, minSizeNeeded);
     blockPtr = prevBlockPtr = NULL;
     offset = offsetToFirstBlock;
     while(offset >= 0) {
         searchCount++;
         blockPtr = (FreeStorageBlock*)(HeapStart + offset);
         /* the following check should be quite unnecessary, but is
-         a good idea to have while debugging */
+           a good idea to have while debugging */
         if ((offset&3) != 0 || (uint8_t*)blockPtr >= HeapEnd) {
             fprintf(stderr,
-                    "corrupted block in the free list -- bad next offset pointer\n");
+                "corrupted block in the free list -- bad next offset pointer\n");
             exit(1);
         }
         blocksize = blockPtr->size;
         /* the following check should be quite unnecessary, but is
-         a good idea to have while debugging */
+           a good idea to have while debugging */
         if (blocksize < MINBLOCKSIZE || (blocksize&3) != 0) {
             fprintf(stderr,
-                    "corrupted block in the free list -- bad size field\n");
+                "corrupted block in the free list -- bad size field\n");
             exit(1);
         }
         diff = blocksize - minSizeNeeded;
@@ -134,23 +134,23 @@ void *MyHeapAlloc( int size ) {
         if (gcAlreadyPerformed) {
             /* we are in a recursive call to MyAlloc after a gc */
             fprintf(stderr,
-                    "\nHeap exhausted! Unable to allocate %d bytes\n", size);
+                "\nHeap exhausted! Unable to allocate %d bytes\n", size);
             exit(1);
         }
         gc();
         gcAlreadyPerformed = 1;
         result = MyHeapAlloc(size);
         /* control never returns from the preceding call if the gc
-         did not obtain enough storage */
+           did not obtain enough storage */
         gcAlreadyPerformed = 0;
         return result;
     }
     /* we have a sufficiently large block of free storage, now determine
-     if we will have a significant amount of storage left over after
-     taking what we need */
+       if we will have a significant amount of storage left over after
+       taking what we need */
     if (diff < MINBLOCKSIZE) {
         /* we will return the entire free block that we found, so
-         remove the block from the free list  */
+           remove the block from the free list  */
         if (prevBlockPtr == NULL)
             offsetToFirstBlock = blockPtr->offsetToNextBlock;
         else
@@ -159,8 +159,8 @@ void *MyHeapAlloc( int size ) {
             fprintf(stdout, "* free list block of size %d used\n", blocksize);
     } else {
         /* we split the free block that we found into two pieces;
-         blockPtr refers to the piece we will return;
-         newBlockPtr will refer to the remaining piece */
+           blockPtr refers to the piece we will return;
+           newBlockPtr will refer to the remaining piece */
         blockPtr->size = minSizeNeeded;
         newBlockPtr = (FreeStorageBlock*)((uint8_t*)blockPtr + minSizeNeeded);
         /* replace the block in the free list with the leftover piece */
@@ -172,8 +172,8 @@ void *MyHeapAlloc( int size ) {
         newBlockPtr->offsetToNextBlock = blockPtr->offsetToNextBlock;
         if (tracingExecution & TRACE_HEAP)
             fprintf(stdout, "* free list block of size %d split into %d + %d\n",
-                    diff+minSizeNeeded, minSizeNeeded, diff);
-        
+                diff+minSizeNeeded, minSizeNeeded, diff);
+
     }
     blockPtr->offsetToNextBlock = 0;  /* remove this info from the returned block */
     totalBytesRequested += minSizeNeeded;
@@ -183,16 +183,16 @@ void *MyHeapAlloc( int size ) {
 
 
 /* When garbage collection is implemented, this function should never
- be called from outside the current file.
- This implementation checks that p is plausible and that the block of
- memory referenced by p holds a plausible size field.
- */
+   be called from outside the current file.
+   This implementation checks that p is plausible and that the block of
+   memory referenced by p holds a plausible size field.
+*/
 static void MyHeapFree(void *p) {
     uint8_t *p1 = (uint8_t*)p;
     int blockSize;
     FreeStorageBlock *blockPtr;
     FreeStorageBlock *iterPtr;
-    
+
     if (p1 < HeapStart || p1 >= HeapEnd || ((p1-HeapStart) & 3) != 0) {
         fprintf(stderr, "bad call to MyHeapFree -- bad pointer\n");
         exit(1);
@@ -225,10 +225,10 @@ static void MyHeapFree(void *p) {
 
 
 /* This implements garbage collection.
- It should be called when
- (a) MyAlloc cannot satisfy a request for a block of memory, or
- (b) when invoked by the call System.gc() in the Java program.
- */
+   It should be called when
+   (a) MyAlloc cannot satisfy a request for a block of memory, or
+   (b) when invoked by the call System.gc() in the Java program.
+*/
 void gc() {
     gcCount++;
     markHeap();
@@ -278,14 +278,14 @@ void *SafeCalloc( int ncopies, int size ) {
         exit(1);
     }
     trackHeapArea(result);
-    return result;
+    return result;    
 }
 
 
 char *SafeStrdup( char *s ) {
     char *r;
     int len;
-    
+
     len = (s == NULL)? 0 : strlen(s);
     r = SafeMalloc(len+1);
     if (len > 0)
@@ -369,7 +369,7 @@ int realSize( ClassInstance *obj) {
     return (uint32_t)*(obj - 4) & 0x7fffffff;
 }
 
-// deterine whether or not
+// deterine whether or not 
 bool shouldMark( void *p ) {
     
     // is it a valid pointer?
